@@ -17,3 +17,6 @@ export type {
   UpdateTaskInput
 } from "./task"
 
+export type { TaskRepository } from "./task-repository"
+
+export { TaskService } from "./task-service";
