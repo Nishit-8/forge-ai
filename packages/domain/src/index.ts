@@ -7,7 +7,7 @@ export type {
 
 export type { ProjectRepository } from "./project-repository";
 
-export { ProjectService } from "./project-service";
+export { ProjectService } from "./project-service.js";
 
 export type {
   Task,
@@ -19,4 +19,4 @@ export type {
 
 export type { TaskRepository } from "./task-repository"
 
-export { TaskService } from "./task-service";
+export { TaskService } from "./task-service.js";

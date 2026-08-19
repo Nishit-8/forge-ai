@@ -7,7 +7,7 @@ import type {
   UpdateProjectInput
 } from "@forgeai/domain";
 
-import { database } from "../database/client.js";
+import type { Client } from "@libsql/client";
 
 
 interface ProjectRow {
@@ -31,9 +31,10 @@ function mapProjectRow(row: ProjectRow): Project {
 }
 
 export class LibSQLProjectRepository implements ProjectRepository {
+  constructor(private readonly client: Client) {}
   
   async findAll(): Promise<Project[]> {
-    const result = await database.execute(`
+    const result = await this.client.execute(`
       SELECT
         id,
         name,
@@ -51,7 +52,7 @@ export class LibSQLProjectRepository implements ProjectRepository {
   }
 
   async findById(id: string): Promise<Project | null> {
-    const result = await database.execute({
+    const result = await this.client.execute({
       sql: `
         SELECT
           id,
@@ -79,7 +80,7 @@ export class LibSQLProjectRepository implements ProjectRepository {
     const id = randomUUID();
     const now = new Date();
 
-    await database.execute({
+    await this.client.execute({
       sql: `
         INSERT INTO projects (
           id,
@@ -126,7 +127,7 @@ export class LibSQLProjectRepository implements ProjectRepository {
     const status = input.status ?? existing.status;
     const updatedAt = new Date();
 
-    await database.execute({
+    await this.client.execute({
       sql: `
         UPDATE projects
         SET

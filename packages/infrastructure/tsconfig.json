@@ -14,6 +14,9 @@
     "rootDir": "src",
     "outDir": "dist",
 
+    "declaration": true,
+    "declarationMap": true,
+
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
