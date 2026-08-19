@@ -65,8 +65,6 @@ try {
   await runMigrations();
   console.log("Database migrations completed");
 
-} catch (error) {
-  console.log("Error running migrations");
 }
 finally {
   database.close();
