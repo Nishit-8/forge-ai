@@ -1,6 +1,11 @@
 import { ProjectService, TaskService } from '@forgeai/domain';
 import { database, LibSQLProjectRepository, LibSQLTaskRepository } from '@forgeai/infrastructure';
-import {createServer, IncomingMessage, ServerResponse} from 'node:http';
+import { createServer, IncomingMessage, ServerResponse } from 'node:http';
+import { randomUUID } from 'node:crypto';
+import {
+  getRequestId,
+  runWithRequestContext
+} from "./context/request-context.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
 
@@ -15,8 +20,11 @@ function sendJson(
   statusCode: number,
   body: unknown
 ): void {
+  const requestId = getRequestId();
+
   res.writeHead(statusCode, {
-    "constent-type": "application/json"
+    "content-type": "application/json",
+    "x-request-id": requestId ?? ""
   })
 
   res.end(JSON.stringify(body));
@@ -35,7 +43,7 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
     chunks.push(Buffer.from(chunk))
   }
 
-  if(chunks.length === 0) {
+  if (chunks.length === 0) {
     return {};
   }
 
@@ -52,230 +60,241 @@ async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse
 ): Promise<void> {
-   if (req.url === "/health" && req.method === "GET") {
-    sendJson(res, 200, {
-      status: "ok",
-    });
 
-    return;
-  }
+  const requestId = randomUUID();
 
-  const path = parsePath(req.url ?? "/");
+  return runWithRequestContext(
+    { requestId },
+    async () => {
 
-  try {
-    /*
-     * GET /api/projects
-     */
-    if (
-      req.method === "GET" &&
-      path.length === 2 &&
-      path[0] === "api" &&
-      path[1] === "projects"
-    ) {
-      const projects = await projectService.listProjects();
+      console.log(`[request:${requestId}] ${req.method ?? "UNKNOWN"} ${req.url ?? "/"}`);
 
-      sendJson(res, 200, projects);
-      return;
-    }
+      try {
+        if (req.url === "/health" && req.method === "GET") {
+          sendJson(res, 200, {
+            status: "ok",
+          });
 
-    /*
-     * POST /api/projects
-     */
-    if (
-      req.method === "POST" &&
-      path.length === 2 &&
-      path[0] === "api" &&
-      path[1] === "projects"
-    ) {
-      const body = await readJsonBody(req);
+          return;
+        }
 
-      if (!isRecord(body)) {
-        sendJson(res, 400, {
-          error: "Request body must be a JSON object",
-        });
-        return;
-      }
+        const path = parsePath(req.url ?? "/");
 
-      const project = await projectService.createProject(body as never);
+        /*
+         * GET /api/projects
+         */
+        if (
+          req.method === "GET" &&
+          path.length === 2 &&
+          path[0] === "api" &&
+          path[1] === "projects"
+        ) {
+          const projects = await projectService.listProjects();
 
-      sendJson(res, 201, project);
-      return;
-    }
+          sendJson(res, 200, projects);
+          return;
+        }
 
-    /*
-     * GET /api/projects/:id
-     */
-    if (
-      req.method === "GET" &&
-      path.length === 3 &&
-      path[0] === "api" &&
-      path[1] === "projects"
-    ) {
-      const project = await projectService.getProject(path[2]);
+        /*
+         * POST /api/projects
+         */
+        if (
+          req.method === "POST" &&
+          path.length === 2 &&
+          path[0] === "api" &&
+          path[1] === "projects"
+        ) {
+          const body = await readJsonBody(req);
 
-      if (!project) {
+          if (!isRecord(body)) {
+            sendJson(res, 400, {
+              error: "Request body must be a JSON object",
+            });
+            return;
+          }
+
+          const project = await projectService.createProject(body as never);
+
+          sendJson(res, 201, project);
+          return;
+        }
+
+        /*
+         * GET /api/projects/:id
+         */
+        if (
+          req.method === "GET" &&
+          path.length === 3 &&
+          path[0] === "api" &&
+          path[1] === "projects"
+        ) {
+          const project = await projectService.getProject(path[2]);
+
+          if (!project) {
+            sendJson(res, 404, {
+              error: "Project not found",
+            });
+            return;
+          }
+
+          sendJson(res, 200, project);
+          return;
+        }
+
+        /*
+         * PATCH /api/projects/:id
+         */
+        if (
+          req.method === "PATCH" &&
+          path.length === 3 &&
+          path[0] === "api" &&
+          path[1] === "projects"
+        ) {
+          const body = await readJsonBody(req);
+
+          if (!isRecord(body)) {
+            sendJson(res, 400, {
+              error: "Request body must be a JSON object",
+            });
+            return;
+          }
+
+          const project = await projectService.updateProject(
+            path[2],
+            body as never,
+          );
+
+          if (!project) {
+            sendJson(res, 404, {
+              error: "Project not found",
+            });
+            return;
+          }
+
+          sendJson(res, 200, project);
+          return;
+        }
+
+        /*
+         * GET /api/projects/:projectId/tasks
+         */
+        if (
+          req.method === "GET" &&
+          path.length === 4 &&
+          path[0] === "api" &&
+          path[1] === "projects" &&
+          path[3] === "tasks"
+        ) {
+          const tasks = await taskService.listByProject(path[2]);
+
+          sendJson(res, 200, tasks);
+          return;
+        }
+
+        /*
+         * POST /api/projects/:projectId/tasks
+         */
+        if (
+          req.method === "POST" &&
+          path.length === 4 &&
+          path[0] === "api" &&
+          path[1] === "projects" &&
+          path[3] === "tasks"
+        ) {
+          const body = await readJsonBody(req);
+
+          if (!isRecord(body)) {
+            sendJson(res, 400, {
+              error: "Request body must be a JSON object",
+            });
+            return;
+          }
+
+          const task = await taskService.create({
+            ...body,
+            projectId: path[2],
+          } as never);
+
+          sendJson(res, 201, task);
+          return;
+        }
+
+        /*
+         * GET /api/tasks/:id
+         */
+        if (
+          req.method === "GET" &&
+          path.length === 3 &&
+          path[0] === "api" &&
+          path[1] === "tasks"
+        ) {
+          const task = await taskService.getById(path[2]);
+
+          if (!task) {
+            sendJson(res, 404, {
+              error: "Task not found",
+            });
+            return;
+          }
+
+          sendJson(res, 200, task);
+          return;
+        }
+
+        /*
+         * PATCH /api/tasks/:id
+         */
+        if (
+          req.method === "PATCH" &&
+          path.length === 3 &&
+          path[0] === "api" &&
+          path[1] === "tasks"
+        ) {
+          const body = await readJsonBody(req);
+
+          if (!isRecord(body)) {
+            sendJson(res, 400, {
+              error: "Request body must be a JSON object",
+            });
+            return;
+          }
+
+          const task = await taskService.update(
+            path[2],
+            body as never,
+          );
+
+          if (!task) {
+            sendJson(res, 404, {
+              error: "Task not found",
+            });
+            return;
+          }
+
+          sendJson(res, 200, task);
+          return;
+        }
+
         sendJson(res, 404, {
-          error: "Project not found",
+          error: "Not Found",
         });
-        return;
-      }
+      } catch (error) {
+        console.error(error);
 
-      sendJson(res, 200, project);
-      return;
-    }
+        if (error instanceof SyntaxError) {
+          sendJson(res, 400, {
+            error: "Invalid JSON",
+          });
 
-    /*
-     * PATCH /api/projects/:id
-     */
-    if (
-      req.method === "PATCH" &&
-      path.length === 3 &&
-      path[0] === "api" &&
-      path[1] === "projects"
-    ) {
-      const body = await readJsonBody(req);
+          return;
+        }
 
-      if (!isRecord(body)) {
-        sendJson(res, 400, {
-          error: "Request body must be a JSON object",
+        sendJson(res, 500, {
+          error: "Internal Server Error",
         });
-        return;
       }
-
-      const project = await projectService.updateProject(
-        path[2],
-        body as never,
-      );
-
-      if (!project) {
-        sendJson(res, 404, {
-          error: "Project not found",
-        });
-        return;
-      }
-
-      sendJson(res, 200, project);
-      return;
     }
-
-    /*
-     * GET /api/projects/:projectId/tasks
-     */
-    if (
-      req.method === "GET" &&
-      path.length === 4 &&
-      path[0] === "api" &&
-      path[1] === "projects" &&
-      path[3] === "tasks"
-    ) {
-      const tasks = await taskService.listByProject(path[2]);
-
-      sendJson(res, 200, tasks);
-      return;
-    }
-
-    /*
-     * POST /api/projects/:projectId/tasks
-     */
-    if (
-      req.method === "POST" &&
-      path.length === 4 &&
-      path[0] === "api" &&
-      path[1] === "projects" &&
-      path[3] === "tasks"
-    ) {
-      const body = await readJsonBody(req);
-
-      if (!isRecord(body)) {
-        sendJson(res, 400, {
-          error: "Request body must be a JSON object",
-        });
-        return;
-      }
-
-      const task = await taskService.create({
-        ...body,
-        projectId: path[2],
-      } as never);
-
-      sendJson(res, 201, task);
-      return;
-    }
-
-    /*
-     * GET /api/tasks/:id
-     */
-    if (
-      req.method === "GET" &&
-      path.length === 3 &&
-      path[0] === "api" &&
-      path[1] === "tasks"
-    ) {
-      const task = await taskService.getById(path[2]);
-
-      if (!task) {
-        sendJson(res, 404, {
-          error: "Task not found",
-        });
-        return;
-      }
-
-      sendJson(res, 200, task);
-      return;
-    }
-
-    /*
-     * PATCH /api/tasks/:id
-     */
-    if (
-      req.method === "PATCH" &&
-      path.length === 3 &&
-      path[0] === "api" &&
-      path[1] === "tasks"
-    ) {
-      const body = await readJsonBody(req);
-
-      if (!isRecord(body)) {
-        sendJson(res, 400, {
-          error: "Request body must be a JSON object",
-        });
-        return;
-      }
-
-      const task = await taskService.update(
-        path[2],
-        body as never,
-      );
-
-      if (!task) {
-        sendJson(res, 404, {
-          error: "Task not found",
-        });
-        return;
-      }
-
-      sendJson(res, 200, task);
-      return;
-    }
-
-    sendJson(res, 404, {
-      error: "Not Found",
-    });
-  } catch (error) {
-    console.error(error);
-
-    if (error instanceof SyntaxError) {
-      sendJson(res, 400, {
-        error: "Invalid JSON",
-      });
-
-      return;
-    }
-
-    sendJson(res, 500, {
-      error: "Internal Server Error",
-    });
-  }
+  )
 }
 
 
