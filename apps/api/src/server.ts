@@ -7,6 +7,8 @@ import {
   runWithRequestContext
 } from "./context/request-context.js";
 
+import { smokeTestAgent } from "@forgeai/mastra";
+
 const PORT = Number(process.env.PORT ?? 3000);
 
 const projectRepository = new LibSQLProjectRepository(database);
@@ -79,6 +81,67 @@ async function handleRequest(
         }
 
         const path = parsePath(req.url ?? "/");
+
+        /*
+         * GET /api/ai/health
+         */
+        if (
+          req.method === "GET" &&
+          path.length === 3 &&
+          path[0] === "api" &&
+          path[1] === "ai" &&
+          path[2] === "health"
+        ) {
+          sendJson(res, 200, {
+            status: "ok",
+            mastra: "ok",
+            gemini: "configured",
+          });
+
+          return;
+        }
+
+        /*
+          * POST /api/ai/test
+          */
+        if (
+          req.method === "POST" &&
+          path.length === 3 &&
+          path[0] === "api" &&
+          path[1] === "ai" &&
+          path[2] === "test"
+        ) {
+          const body = await readJsonBody(req);
+
+          if (!isRecord(body)) {
+            sendJson(res, 400, {
+              error: "Request body must be a JSON object",
+            });
+
+            return;
+          }
+
+          const prompt =
+            typeof body.prompt === "string" && body.prompt.trim().length > 0
+              ? body.prompt.trim()
+              : "Reply with exactly: ForgeAI AI smoke test successful.";
+
+          if (prompt.length > 500) {
+            sendJson(res, 400, {
+              error: "Prompt must be 500 characters or fewer",
+            });
+
+            return;
+          }
+
+          const result = await smokeTestAgent.generate(prompt);
+
+          sendJson(res, 200, {
+            response: result.text,
+          });
+
+          return;
+        }
 
         /*
          * GET /api/projects

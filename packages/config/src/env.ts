@@ -1,6 +1,12 @@
 import { config as loadDotEnv } from 'dotenv';
+import path from "node:path";
 
-loadDotEnv();
+const envPath = path.resolve(process.cwd(), "../../.env");
+
+loadDotEnv({
+  path: envPath,
+});
+
 
 export function getRequiredEnv(name: string): string {
   const value = process.env[name];

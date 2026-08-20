@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@forgeai/domain": "0.1.0",
-    "@forgeai/infrastructure": "0.1.0"
+    "@forgeai/infrastructure": "0.1.0",
+    "@forgeai/mastra": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
