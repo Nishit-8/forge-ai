@@ -9,9 +9,13 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "dev": "npm run dev --workspaces --if-present",
+    "dev": "concurrently \"npm run dev --workspace=@forgeai/config\" \"npm run dev --workspace=@forgeai/domain\" \"npm run dev --workspace=@forgeai/infrastructure\" \"npm run dev --workspace=@forgeai/mastra\" \"npm run dev --workspace=@forgeai/api\" \"npm run dev --workspace=@forgeai/web\"",
+    "dev:packages": "concurrently \"npm run dev --workspace=@forgeai/config\" \"npm run dev --workspace=@forgeai/domain\" \"npm run dev --workspace=@forgeai/infrastructure\" \"npm run dev --workspace=@forgeai/mastra\"",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
   }
 }
