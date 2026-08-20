@@ -1,0 +1,13 @@
+{
+  "name": "@forgeai/mastra",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.59.0"
+  }
+}
