@@ -1,8 +1,11 @@
 import { config as loadDotEnv } from 'dotenv';
 import path from "node:path";
 
-const envPath = path.resolve(process.cwd(), "../../.env");
+// const envPath = path.resolve(process.cwd(), "../../.env");
 
+const envPath = path.resolve(process.cwd(), ".env");
+
+console.log("path", envPath);
 loadDotEnv({
   path: envPath,
 });

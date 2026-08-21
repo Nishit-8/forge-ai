@@ -11,7 +11,10 @@
     "build": "npm run build --workspaces --if-present",
     "dev": "concurrently \"npm run dev --workspace=@forgeai/config\" \"npm run dev --workspace=@forgeai/domain\" \"npm run dev --workspace=@forgeai/infrastructure\" \"npm run dev --workspace=@forgeai/mastra\" \"npm run dev --workspace=@forgeai/api\" \"npm run dev --workspace=@forgeai/web\"",
     "dev:packages": "concurrently \"npm run dev --workspace=@forgeai/config\" \"npm run dev --workspace=@forgeai/domain\" \"npm run dev --workspace=@forgeai/infrastructure\" \"npm run dev --workspace=@forgeai/mastra\"",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "tsx --test \"packages/*/src/test/**/*.test.ts\"",
+    "test:integration": "tsx --test \"apps/api/src/test/**/*.integration.test.ts\"",
+    "test:ai": "RUN_AI_TESTS=true tsx --test \"apps/api/src/test/**/*.smoke.test.ts\"",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
   },

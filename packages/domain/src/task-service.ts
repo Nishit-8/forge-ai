@@ -11,6 +11,7 @@ export class TaskService {
   ) { }
 
   async listByProject(projectId: string): Promise<Task[]> {
+    
     return this.taskRepository.findByProjectId(projectId);
   }
 
