@@ -7,6 +7,11 @@ import {
   runWithRequestContext
 } from "./context/request-context.js";
 
+import {
+  ApiError,
+  toApiErrorResponse
+} from './errors/api-error.js';
+
 import { smokeTestAgent } from "@forgeai/mastra";
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -26,7 +31,7 @@ function sendJson(
 
   res.writeHead(statusCode, {
     "content-type": "application/json",
-    "x-request-id": requestId ?? ""
+    "x-request-id": requestId ?? "",
   })
 
   res.end(JSON.stringify(body));
@@ -114,11 +119,11 @@ async function handleRequest(
           const body = await readJsonBody(req);
 
           if (!isRecord(body)) {
-            sendJson(res, 400, {
-              error: "Request body must be a JSON object",
-            });
-
-            return;
+            throw new ApiError(
+              400,
+              "INVALID_REQUEST",
+              "Request body must be a JSON object",
+            );
           }
 
           const prompt =
@@ -127,11 +132,11 @@ async function handleRequest(
               : "Reply with exactly: ForgeAI AI smoke test successful.";
 
           if (prompt.length > 500) {
-            sendJson(res, 400, {
-              error: "Prompt must be 500 characters or fewer",
-            });
-
-            return;
+            throw new ApiError(
+              400,
+              "INVALID_REQUEST",
+              "Prompt must be 500 characters or fewer",
+            );
           }
 
           const result = await smokeTestAgent.generate(prompt);
@@ -170,10 +175,11 @@ async function handleRequest(
           const body = await readJsonBody(req);
 
           if (!isRecord(body)) {
-            sendJson(res, 400, {
-              error: "Request body must be a JSON object",
-            });
-            return;
+            throw new ApiError(
+              400,
+              "INVALID_REQUEST",
+              "Request body must be a JSON object",
+            );
           }
 
           const project = await projectService.createProject(body as never);
@@ -194,10 +200,11 @@ async function handleRequest(
           const project = await projectService.getProject(path[2]);
 
           if (!project) {
-            sendJson(res, 404, {
-              error: "Project not found",
-            });
-            return;
+            throw new ApiError(
+              404,
+              "RESOURCE_NOT_FOUND",
+              "Project was not found",
+            );
           }
 
           sendJson(res, 200, project);
@@ -216,10 +223,11 @@ async function handleRequest(
           const body = await readJsonBody(req);
 
           if (!isRecord(body)) {
-            sendJson(res, 400, {
-              error: "Request body must be a JSON object",
-            });
-            return;
+            throw new ApiError(
+              400,
+              "INVALID_REQUEST",
+              "Request body must be a JSON object",
+            );
           }
 
           const project = await projectService.updateProject(
@@ -228,10 +236,11 @@ async function handleRequest(
           );
 
           if (!project) {
-            sendJson(res, 404, {
-              error: "Project not found",
-            });
-            return;
+            throw new ApiError(
+              404,
+              "RESOURCE_NOT_FOUND",
+              "Project was not found",
+            );
           }
 
           sendJson(res, 200, project);
@@ -267,10 +276,11 @@ async function handleRequest(
           const body = await readJsonBody(req);
 
           if (!isRecord(body)) {
-            sendJson(res, 400, {
-              error: "Request body must be a JSON object",
-            });
-            return;
+            throw new ApiError(
+              400,
+              "INVALID_REQUEST",
+              "Request body must be a JSON object",
+            );
           }
 
           const task = await taskService.create({
@@ -294,10 +304,11 @@ async function handleRequest(
           const task = await taskService.getById(path[2]);
 
           if (!task) {
-            sendJson(res, 404, {
-              error: "Task not found",
-            });
-            return;
+            throw new ApiError(
+              404,
+              "RESOURCE_NOT_FOUND",
+              "Task was not found",
+            );
           }
 
           sendJson(res, 200, task);
@@ -316,10 +327,11 @@ async function handleRequest(
           const body = await readJsonBody(req);
 
           if (!isRecord(body)) {
-            sendJson(res, 400, {
-              error: "Request body must be a JSON object",
-            });
-            return;
+            throw new ApiError(
+              400,
+              "INVALID_REQUEST",
+              "Request body must be a JSON object",
+            );
           }
 
           const task = await taskService.update(
@@ -328,33 +340,33 @@ async function handleRequest(
           );
 
           if (!task) {
-            sendJson(res, 404, {
-              error: "Task not found",
-            });
-            return;
+            throw new ApiError(
+              404,
+              "RESOURCE_NOT_FOUND",
+              "Task was not found",
+            );
           }
 
           sendJson(res, 200, task);
           return;
         }
 
-        sendJson(res, 404, {
-          error: "Not Found",
-        });
+        throw new ApiError(
+          404,
+          "RESOURCE_NOT_FOUND",
+          "Route not found",
+        );
       } catch (error) {
-        console.error(error);
+        console.error(`[request:${requestId}]`, error);
 
-        if (error instanceof SyntaxError) {
-          sendJson(res, 400, {
-            error: "Invalid JSON",
-          });
+        const apiErrorResponse = toApiErrorResponse(error);
 
-          return;
-        }
+        const statusCode =
+          error instanceof ApiError
+            ? error.statusCode
+            : 500;
 
-        sendJson(res, 500, {
-          error: "Internal Server Error",
-        });
+        sendJson(res, statusCode, apiErrorResponse);
       }
     }
   )
