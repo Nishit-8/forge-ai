@@ -1,5 +1,7 @@
 import { applicationConfig } from "@forgeai/config";
 import { Agent } from "@mastra/core/agent";
+import { createGetProjectTool } from "../tools/get-project.js";
+import type { ProjectService } from "@forgeai/domain";
 
 
 const forgeAiInstructions = `
@@ -14,9 +16,16 @@ Do not invent project state or claim that an action was performed
 unless the application has actually provided that information.
 `.trim();
 
-export const forgeaiAgent = new Agent({
-  id: 'forgeai-agent',
-  name: 'ForgeAI Agent',
-  instructions: forgeAiInstructions,
-  model: applicationConfig.ai.model
-})
+export function createForgeAiAgent(
+  projectService: ProjectService
+) {
+  return new Agent({
+    id: "forgeai-agent",
+    name: "ForgeAI Agent",
+    instructions: forgeAiInstructions,
+    model: applicationConfig.ai.model,
+    tools: {
+      getProjectTool: createGetProjectTool(projectService),
+    },
+  });
+}
