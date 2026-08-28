@@ -1,7 +1,8 @@
 import { applicationConfig } from "@forgeai/config";
 import { Agent } from "@mastra/core/agent";
 import { createGetProjectTool } from "../tools/get-project.js";
-import type { ProjectService } from "@forgeai/domain";
+import type { ProjectService, TaskService } from "@forgeai/domain";
+import { createListProjectTasksTool } from "../tools/list-project-tasks-tool.js";
 
 
 const forgeAiInstructions = `
@@ -17,7 +18,8 @@ unless the application has actually provided that information.
 `.trim();
 
 export function createForgeAiAgent(
-  projectService: ProjectService
+  projectService: ProjectService,
+  taskService: TaskService
 ) {
   return new Agent({
     id: "forgeai-agent",
@@ -26,6 +28,7 @@ export function createForgeAiAgent(
     model: applicationConfig.ai.model,
     tools: {
       getProjectTool: createGetProjectTool(projectService),
+      listPojectTasksTool: createListProjectTasksTool(taskService)
     },
   });
 }
