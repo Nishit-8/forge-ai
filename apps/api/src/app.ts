@@ -1,6 +1,8 @@
 import { ProjectService, TaskService } from "@forgeai/domain";
 import { LibSQLProjectRepository, database, LibSQLTaskRepository } from "@forgeai/infrastructure";
-import { smokeTestAgent } from "@forgeai/mastra";
+
+import { createMastra, smokeTestAgent } from "@forgeai/mastra";
+import { RequestContext } from "@mastra/core/request-context";
 import { randomUUID } from "node:crypto";
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { getRequestId, runWithRequestContext } from "./context/request-context.js";
@@ -12,6 +14,14 @@ interface AppDependencies {
   smokeTestAgent: {
     generate(prompt: string): Promise<{ text: string }>;
   };
+  forgeAiAgent: {
+    generate(
+      prompt: string,
+      options: {
+        requestContext: RequestContext<{ requestId: string }>;
+      },
+    ): Promise<{ text: string }>;
+  };
 }
 
 export function createApp(appDependencies?: AppDependencies) {
@@ -21,7 +31,11 @@ export function createApp(appDependencies?: AppDependencies) {
   const projectService = appDependencies?.projectService ?? new ProjectService(projectRepository);
   const taskService = appDependencies?.taskService ?? new TaskService(taskRepository);
 
-  const smokeAgent = appDependencies?.smokeTestAgent ?? smokeTestAgent
+  const smokeAgent = appDependencies?.smokeTestAgent ?? smokeTestAgent;
+
+  const mastra = appDependencies?.forgeAiAgent === undefined ? createMastra(projectService, taskService) : undefined;
+
+  const forgeAgent = appDependencies?.forgeAiAgent ?? mastra!.getAgentById("forgeai-agent");
 
   return createServer((req, res) => {
     void handleRequest(
@@ -29,7 +43,8 @@ export function createApp(appDependencies?: AppDependencies) {
       res,
       projectService,
       taskService,
-      smokeAgent
+      smokeAgent,
+      forgeAgent
     )
   })
 }
@@ -80,7 +95,17 @@ async function handleRequest(
   res: ServerResponse,
   projectService: ProjectService,
   taskService: TaskService,
-  smokeAgent: any
+  smokeAgent: {
+    generate(prompt: string): Promise<{ text: string }>;
+  },
+  forgeAgent: {
+    generate(
+      prompt: string,
+      options: {
+        requestContext: RequestContext<{ requestId: string }>;
+      },
+    ): Promise<{ text: string }>;
+  },
 ): Promise<void> {
 
   const requestId = randomUUID();
@@ -154,7 +179,7 @@ async function handleRequest(
             );
           }
 
-          const result =  await smokeAgent.generate(prompt);
+          const result = await smokeAgent.generate(prompt);
 
           sendJson(res, 200, {
             response: result.text,
@@ -363,6 +388,64 @@ async function handleRequest(
           }
 
           sendJson(res, 200, task);
+          return;
+        }
+
+        /*
+        * POST /api/ai/agent
+        */
+        if (
+          req.method === "POST" &&
+          path.length === 3 &&
+          path[0] === "api" &&
+          path[1] === "ai" &&
+          path[2] === "agent"
+        ) {
+          const body = await readJsonBody(req);
+
+          if (!isRecord(body)) {
+            throw new ApiError(
+              400,
+              "INVALID_REQUEST",
+              "Request body must be a JSON object",
+            );
+          }
+
+          const prompt =
+            typeof body.prompt === "string"
+              ? body.prompt.trim()
+              : "";
+
+          if (prompt.length === 0) {
+            throw new ApiError(
+              400,
+              "INVALID_REQUEST",
+              "Prompt is required",
+            );
+          }
+
+          if (prompt.length > 500) {
+            throw new ApiError(
+              400,
+              "INVALID_REQUEST",
+              "Prompt must be 500 characters or fewer",
+            );
+          }
+
+          const requestContext = new RequestContext<{
+            requestId: string;
+          }>();
+
+          requestContext.set("requestId", requestId);
+
+          const result = await forgeAgent.generate(prompt, {
+            requestContext,
+          });
+
+          sendJson(res, 200, {
+            response: result.text,
+          });
+
           return;
         }
 
