@@ -4,6 +4,8 @@ import { createGetProjectTool } from "../tools/get-project.js";
 import type { ProjectService, TaskService } from "@forgeai/domain";
 import { createListProjectTasksTool } from "../tools/list-project-tasks-tool.js";
 
+import { z } from "zod";
+
 
 const forgeAiInstructions = `
 You are the ForgeAI engineering assistant.
@@ -26,6 +28,9 @@ export function createForgeAiAgent(
     name: "ForgeAI Agent",
     instructions: forgeAiInstructions,
     model: applicationConfig.ai.model,
+    requestContextSchema: z.object({
+    requestId: z.string(),
+  }),
     tools: {
       getProjectTool: createGetProjectTool(projectService),
       listPojectTasksTool: createListProjectTasksTool(taskService)

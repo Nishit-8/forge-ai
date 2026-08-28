@@ -9,7 +9,16 @@ export function createListProjectTasksTool(taskService: TaskService) {
     inputSchema: z.object({
       projectId: z.uuid().describe("The UUID of the project whose tasks to retrieve")
     }),
-    execute: async ({ projectId }) => {
+    requestContextSchema: z.object({
+      requestId: z.string(),
+    }),
+    execute: async ({ projectId }, { requestContext }) => {
+      const requestId = requestContext?.get("requestId");
+
+      console.log(
+        `[tool:list-projects] requestId=${requestId ?? "unknown"}`,
+      );
+
       return taskService.listByProject(projectId);
     }
   })

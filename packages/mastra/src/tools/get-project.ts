@@ -12,7 +12,17 @@ export function createGetProjectTool(projectService: ProjectService) {
       projectId: z.uuid().describe("The UUID of the project to retrieve"),
     }),
 
-    execute: async ({ projectId }) => {
+    requestContextSchema: z.object({
+      requestId: z.string()
+    }),
+
+    execute: async ({ projectId }, { requestContext }) => {
+      const requestId = requestContext?.get("requestId");
+
+      console.log(
+        `[tool:get-project] requestId=${requestId ?? "unknown"}`,
+      );
+      
       return projectService.getProject(projectId);
     },
   });
