@@ -19,8 +19,8 @@ main {
   padding: 24px;
 }
 
-.runtime-card {
-  width: min(560px, 100%);
+.agent-card {
+  width: min(720px, 100%);
   padding: 32px;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
@@ -28,40 +28,90 @@ main {
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
+.agent-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
 h1 {
   margin: 0;
 }
 
 .subtitle {
-  margin-top: 8px;
+  margin: 8px 0 0;
   color: #6b7280;
 }
 
-.runtime-status {
-  display: grid;
-  gap: 12px;
-  margin: 24px 0;
-}
-
-.runtime-status div {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-radius: 8px;
-  background: #f3f4f6;
-}
-
-.runtime-status strong {
+.status-badge {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f0fdf4;
   color: #15803d;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+textarea {
+  display: block;
+  width: 100%;
+  resize: vertical;
+  min-height: 120px;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: inherit;
+  line-height: 1.5;
+}
+
+textarea:focus {
+  outline: 2px solid #93c5fd;
+  outline-offset: 1px;
+}
+
+textarea:disabled {
+  background: #f9fafb;
+}
+
+.prompt-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.prompt-footer > span {
+  color: #6b7280;
+  font-size: 0.85rem;
 }
 
 button {
-  width: 100%;
-  padding: 12px 16px;
+  min-width: 96px;
+  padding: 10px 16px;
   border: 0;
   border-radius: 8px;
   cursor: pointer;
   font: inherit;
+  font-weight: 600;
 }
 
 button:disabled {
@@ -86,4 +136,14 @@ button:disabled {
 
 .error {
   background: #fef2f2;
+}
+
+@media (max-width: 560px) {
+  .agent-card {
+    padding: 24px;
+  }
+
+  .agent-header {
+    flex-direction: column;
+  }
 }
