@@ -1,5 +1,6 @@
-import { FormEvent, useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 
+type AgentState =
 type AgentState =
   | { status: "idle" }
   | { status: "loading" }
@@ -11,13 +12,20 @@ interface AgentResponse {
   error?: string;
 }
 
+interface AgentResponse {
+  response?: string;
+  error?: string;
+}
+
 function App() {
+  const [prompt, setPrompt] = useState("");
+  const [agentState, setAgentState] = useState<AgentState>({
   const [prompt, setPrompt] = useState("");
   const [agentState, setAgentState] = useState<AgentState>({
     status: "idle",
   });
 
-  async function submitPrompt(event: FormEvent<HTMLFormElement>): Promise<void> {
+  async function submitPrompt(event: SyntheticEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
     const trimmedPrompt = prompt.trim();
@@ -34,29 +42,36 @@ function App() {
 
     try {
       const response = await fetch("/api/ai/agent", {
+      const response = await fetch("/api/ai/agent", {
         method: "POST",
         headers: {
           "content-type": "application/json",
         },
         body: JSON.stringify({
           prompt: trimmedPrompt,
+          prompt: trimmedPrompt,
         }),
       });
 
       const body = (await response.json()) as AgentResponse;
+      const body = (await response.json()) as AgentResponse;
 
       if (!response.ok) {
         throw new Error(body.error ?? "Agent request failed");
+        throw new Error(body.error ?? "Agent request failed");
       }
 
+      setAgentState({
       setAgentState({
         status: "success",
         response: body.response ?? "",
       });
     } catch (error) {
       setAgentState({
+      setAgentState({
         status: "error",
         message:
+          error instanceof Error ? error.message : "Unknown agent error",
           error instanceof Error ? error.message : "Unknown agent error",
       });
     }
@@ -66,18 +81,27 @@ function App() {
     <main>
       <section className="agent-card" aria-labelledby="agent-title">
         <div className="agent-header">
+      <section className="agent-card" aria-labelledby="agent-title">
+        <div className="agent-header">
           <div>
             <p className="eyebrow">ForgeAI</p>
             <h1 id="agent-title">Engineering Agent</h1>
             <p className="subtitle">
               Ask the agent about your projects and tasks.
             </p>
+            <p className="eyebrow">ForgeAI</p>
+            <h1 id="agent-title">Engineering Agent</h1>
+            <p className="subtitle">
+              Ask the agent about your projects and tasks.
+            </p>
           </div>
+
           <span className="status-badge">Ready</span>
         </div>
 
         <form onSubmit={submitPrompt}>
           <label htmlFor="agent-prompt">Prompt</label>
+
           <textarea
             id="agent-prompt"
             name="prompt"
@@ -91,6 +115,7 @@ function App() {
 
           <div className="prompt-footer">
             <span>{prompt.length}/500</span>
+
             <button
               type="submit"
               disabled={agentState.status === "loading"}
@@ -104,12 +129,19 @@ function App() {
           <div className="response success" role="status">
             <strong>Agent response</strong>
             <p>{agentState.response}</p>
+        {agentState.status === "success" && (
+          <div className="response success" role="status">
+            <strong>Agent response</strong>
+            <p>{agentState.response}</p>
           </div>
         )}
 
         {agentState.status === "error" && (
           <div className="response error" role="alert">
+        {agentState.status === "error" && (
+          <div className="response error" role="alert">
             <strong>Request failed</strong>
+            <p>{agentState.message}</p>
             <p>{agentState.message}</p>
           </div>
         )}
