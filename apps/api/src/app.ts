@@ -19,6 +19,8 @@ interface AppDependencies {
       prompt: string,
       options: {
         requestContext: RequestContext<{ requestId: string }>;
+        toolChoice?: "auto" | "none" | "required" | undefined;
+        activeTools?: string[] | undefined
       },
     ): Promise<{ text: string }>;
   };
@@ -103,6 +105,8 @@ async function handleRequest(
       prompt: string,
       options: {
         requestContext: RequestContext<{ requestId: string }>;
+        toolChoice?: "auto" | "none" | "required" | undefined;
+        activeTools?: string[] | undefined
       },
     ): Promise<{ text: string }>;
   },
@@ -416,6 +420,17 @@ async function handleRequest(
               ? body.prompt.trim()
               : "";
 
+          const toolChoice =
+            body.toolChoice === "auto" ||
+              body.toolChoice === "none" ||
+              body.toolChoice === "required"
+              ? body.toolChoice
+              : undefined;
+
+          const activeTools = Array.isArray(body.activeTools) &&
+            body.activeTools.every((tool) => typeof tool === "string")
+            ? body.activeTools : undefined;
+
           if (prompt.length === 0) {
             throw new ApiError(
               400,
@@ -440,6 +455,8 @@ async function handleRequest(
 
           const result = await forgeAgent.generate(prompt, {
             requestContext,
+            toolChoice,
+            activeTools
           });
 
           sendJson(res, 200, {
