@@ -16,7 +16,8 @@
     "test:integration": "tsx --test \"apps/api/src/test/**/*.integration.test.ts\"",
     "test:ai": "RUN_AI_TESTS=true tsx --test \"apps/api/src/test/**/*.smoke.test.ts\"",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present"
+    "lint": "npm run lint --workspaces --if-present",
+    "api": "npm run dev --workspace=@forgeai/api"
   },
   "devDependencies": {
     "concurrently": "^10.0.5"

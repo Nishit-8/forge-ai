@@ -60,6 +60,18 @@ export function createGetProjectTool(projectService: ProjectService) {
           };
         },
       },
-    }
+    },
+
+    toModelOutput: (output) => {
+      return {
+        type: "content",
+        value: [
+          {
+            type: "text",
+            text: `Project "${output.name}" is ${output.status}.`,
+          },
+        ],
+      };
+    },
   });
 }
