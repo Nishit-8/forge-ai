@@ -40,7 +40,7 @@ describe("ForgeAI Agent", () => {
 
     assert.deepEqual(
       Object.keys(tools).sort(),
-      ["getProjectTool", "listPojectTasksTool"].sort(),
+      ["getProjectTool", "listPojectTasksTool","webFetchTool"].sort(),
     );
   });
 });

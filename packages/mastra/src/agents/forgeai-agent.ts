@@ -6,6 +6,7 @@ import { createListProjectTasksTool } from "../tools/list-project-tasks-tool.js"
 import { webFetchTool } from "@mastra/core/tools";
 
 import { z } from "zod";
+import { createProjectOverviewWorkflow } from "../workflows/project-overview-workflow.js";
 
 
 const forgeAiInstructions = `
@@ -29,6 +30,10 @@ export function createForgeAiAgent(
   projectService: ProjectService,
   taskService: TaskService
 ) {
+  const projectOverviewWorkflow = createProjectOverviewWorkflow(
+    projectService,
+    taskService
+  );
   return new Agent({
     id: "forgeai-agent",
     name: "ForgeAI Agent",
@@ -41,6 +46,9 @@ export function createForgeAiAgent(
       getProjectTool: createGetProjectTool(projectService),
       listPojectTasksTool: createListProjectTasksTool(taskService),
       webFetchTool
+    },
+    workflows: {
+      projectOverviewWorkflow
     },
     hooks: {
       beforeToolCall: ({ toolName, input }) => {
