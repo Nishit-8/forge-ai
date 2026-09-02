@@ -29,11 +29,24 @@ export function createForgeAiAgent(
     instructions: forgeAiInstructions,
     model: applicationConfig.ai.model,
     requestContextSchema: z.object({
-    requestId: z.string(),
-  }),
+      requestId: z.string(),
+    }),
     tools: {
       getProjectTool: createGetProjectTool(projectService),
       listPojectTasksTool: createListProjectTasksTool(taskService)
     },
+    hooks: {
+      beforeToolCall: ({ toolName, input }) => {
+        console.log(`[agent:beforeToolCall tool=${toolName}]`, input);
+      },
+      afterToolCall: ({ toolName, output, error }) => {
+        if (error) {
+          console.error(`agent:afterToolCall tool=${toolName} failed`, error);
+          return;
+        }
+
+        console.log(`[agent:afterToolCall] tool=${toolName} ccompleted`, output)
+      }
+    }
   });
 }
