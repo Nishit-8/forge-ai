@@ -4,6 +4,7 @@ import { createGetProjectTool } from "../tools/get-project.js";
 import type { ProjectService, TaskService } from "@forgeai/domain";
 import { createListProjectTasksTool } from "../tools/list-project-tasks-tool.js";
 import { webFetchTool } from "@mastra/core/tools";
+import { ToolSearchProcessor } from "@mastra/core/processors";
 
 import { z } from "zod";
 import { createProjectOverviewWorkflow } from "../workflows/project-overview-workflow.js";
@@ -35,11 +36,20 @@ export function createForgeAiAgent(
     taskService
   );
 
-  const tools = {
+  const searchableTools = {
     getProjectTool: createGetProjectTool(projectService),
     listPojectTasksTool: createListProjectTasksTool(taskService),
-    webFetchTool
-  }
+    webFetchTool,
+  };
+
+  const toolSearch = new ToolSearchProcessor({
+    tools: searchableTools as Record<string, any>,
+    search: {
+      topK: 5,
+      minScore: 0,
+    },
+    ttl: 60 * 60 * 1000,
+  });
 
   return new Agent({
     id: "forgeai-agent",
@@ -50,16 +60,7 @@ export function createForgeAiAgent(
       requestId: z.string(),
       allowedTools: z.array(z.string()).optional()
     }),
-    tools: ({ requestContext }) => {
-      const allowedTools = requestContext.all.allowedTools;
-
-      if (!allowedTools) return tools;
-
-      return Object.fromEntries(
-        Object.entries(tools).filter(([toolName]) =>
-          allowedTools.includes(toolName))
-      )
-    },
+    inputProcessors: [toolSearch],
     workflows: {
       projectOverviewWorkflow
     },
