@@ -34,6 +34,13 @@ export function createForgeAiAgent(
     projectService,
     taskService
   );
+
+  const tools = {
+    getProjectTool: createGetProjectTool(projectService),
+    listPojectTasksTool: createListProjectTasksTool(taskService),
+    webFetchTool
+  }
+
   return new Agent({
     id: "forgeai-agent",
     name: "ForgeAI Agent",
@@ -41,11 +48,17 @@ export function createForgeAiAgent(
     model: applicationConfig.ai.model,
     requestContextSchema: z.object({
       requestId: z.string(),
+      allowedTools: z.array(z.string()).optional()
     }),
-    tools: {
-      getProjectTool: createGetProjectTool(projectService),
-      listPojectTasksTool: createListProjectTasksTool(taskService),
-      webFetchTool
+    tools: ({ requestContext }) => {
+      const allowedTools = requestContext.all.allowedTools;
+
+      if (!allowedTools) return tools;
+
+      return Object.fromEntries(
+        Object.entries(tools).filter(([toolName]) =>
+          allowedTools.includes(toolName))
+      )
     },
     workflows: {
       projectOverviewWorkflow
