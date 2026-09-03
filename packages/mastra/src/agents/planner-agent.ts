@@ -1,5 +1,9 @@
 import { applicationConfig } from "@forgeai/config";
 import { Agent } from "@mastra/core/agent";
+import {
+  planOutputSchema,
+  type PlanOutput,
+} from "./planner-output-schema.js";
 
 const plannerInstructions = `
 You are the ForgeAI Planner.
@@ -20,8 +24,11 @@ When planning:
 - Do not produce implementation code unless the user explicitly asks for it.
 - Keep plans concise and actionable.
 
-At this stage, return the plan as normal text.
-Do not require or invent a JSON schema.
+Return a structured engineering plan containing:
+- the original objective
+- a concise summary
+- explicit assumptions
+- an ordered list of actionable steps
 `.trim();
 
 export const plannerAgent = new Agent({
@@ -30,3 +37,13 @@ export const plannerAgent = new Agent({
   instructions: plannerInstructions,
   model: applicationConfig.ai.model,
 });
+
+export async function generatePlan(objective: string): Promise<PlanOutput> {
+  const response = await plannerAgent.generate(objective, {
+    structuredOutput: {
+      schema: planOutputSchema,
+    },
+  });
+
+  return response.object;
+}
