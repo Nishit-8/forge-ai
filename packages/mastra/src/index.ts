@@ -4,6 +4,7 @@ import { applicationConfig } from '@forgeai/config';
 import { createForgeAiAgent } from './agents/forgeai-agent.js';
 import type { ProjectService, TaskService } from '@forgeai/domain';
 import { createProjectOverviewWorkflow } from './workflows/project-overview-workflow.js';
+import { plannerAgent } from './agents/planner-agent.js';
 
 process.env.GOOGLE_GENERATIVE_AI_API_KEY ??=
   applicationConfig.ai.googleApiKey;
@@ -22,6 +23,7 @@ export function createMastra(projectService: ProjectService, taskService: TaskSe
     agents: {
       smokeTestAgent,
       forgeaiAgent,
+      plannerAgent
     },
     workflows: {
       projectOverviewWorkflow
