@@ -42,7 +42,8 @@ export async function generatePlan(objective: string): Promise<PlanOutput> {
   const response = await plannerAgent.generate(objective, {
     structuredOutput: {
       schema: planOutputSchema,
-      errorStrategy: "strict"
+      errorStrategy: "strict",
+      jsonPromptInjection: true
     },
   });
 
