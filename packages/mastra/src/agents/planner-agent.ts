@@ -1,6 +1,8 @@
 import { applicationConfig } from "@forgeai/config";
 import { Agent } from "@mastra/core/agent";
+import { TaskSignalProvider } from "@mastra/core/signals";
 import { askUserTool, submitPlanTool } from "@mastra/core/tools";
+import { Memory } from "@mastra/memory";
 import {
   planOutputSchema,
   type PlanOutput,
@@ -23,6 +25,21 @@ When planning:
 - Do not invent project state, metrics, deployments, files, or incidents.
 - Do not execute tools or actions.
 - Do not produce implementation code unless the user explicitly asks for it.
+
+For multi-step planning work, use the task tracking tools to keep the
+current planning work visible and up to date.
+
+Use task_write when you have identified the concrete work items that need
+to be tracked.
+
+Use task_update when the status of an existing task changes.
+
+Use task_complete when a tracked task has been completed.
+
+Use task_check when you need to verify the current task list before finishing.
+
+Keep the task list focused on the current planning request. Do not create
+tasks for unrelated or speculative future work.
 
 When the user's objective is ambiguous and an important piece of information
 is required to create a useful plan, use askUserTool to ask the user for
@@ -50,11 +67,15 @@ Return a structured engineering plan containing:
 - an ordered list of actionable steps
 `.trim();
 
+const plannerMemory = new Memory();
+
 export const plannerAgent = new Agent({
   id: "planner-agent",
   name: "Planner Agent",
   instructions: plannerInstructions,
   model: applicationConfig.ai.model,
+  memory: plannerMemory,
+  signals: [new TaskSignalProvider()],
   tools: {
     askUserTool,
     submitPlanTool,
