@@ -97,3 +97,31 @@ test("TaskService returns null for an unknown task", async () => {
 
   assert.equal(task, null);
 });
+
+test("TaskService persists plan steps as tasks", async () => {
+  const repository = new FakeTaskRepository();
+  const service = new TaskService(repository);
+
+  const tasks = await service.createFromPlan("project-1", [
+    {
+      title: "Inspect the repository",
+      description: "Review the existing architecture before implementation.",
+    },
+    {
+      title: "Implement the feature",
+      description: "Add the requested functionality.",
+    },
+  ]);
+
+  assert.equal(tasks.length, 2);
+  assert.equal(tasks[0]?.projectId, "project-1");
+  assert.equal(tasks[0]?.title, "Inspect the repository");
+  assert.equal(
+    tasks[0]?.description,
+    "Review the existing architecture before implementation.",
+  );
+  assert.equal(tasks[0]?.priority, "medium");
+
+  assert.equal(tasks[1]?.title, "Implement the feature");
+  assert.equal(tasks[1]?.description, "Add the requested functionality.");
+});
