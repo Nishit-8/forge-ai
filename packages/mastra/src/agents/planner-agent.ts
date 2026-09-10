@@ -40,6 +40,17 @@ export const plannerAgent = new Agent({
 
 export async function generatePlan(objective: string): Promise<PlanOutput> {
   const response = await plannerAgent.generate(objective, {
+    prepareStep: ({stepNumber}) => {
+      if(stepNumber === 0) {
+        return {
+          model: applicationConfig.ai.model
+        }
+      }
+
+      return {
+        model: applicationConfig.ai.structuringModel
+      }
+    },
     structuredOutput: {
       schema: planOutputSchema,
       model: applicationConfig.ai.structuringModel,
