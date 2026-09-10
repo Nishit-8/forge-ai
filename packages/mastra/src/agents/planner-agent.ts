@@ -1,6 +1,6 @@
 import { applicationConfig } from "@forgeai/config";
 import { Agent } from "@mastra/core/agent";
-import { askUserTool } from "@mastra/core/tools";
+import { askUserTool, submitPlanTool } from "@mastra/core/tools";
 import {
   planOutputSchema,
   type PlanOutput,
@@ -34,7 +34,14 @@ changes the plan.
 Prefer a concise question that requests only the information needed to
 continue planning.
 
-Once you have enough information, stop asking questions and produce the plan.
+Once you have enough information:
+
+1. Produce the structured engineering plan.
+2. Submit the plan for human approval using submitPlanTool.
+3. Do not proceed with implementation until the plan is approved.
+
+If the plan is rejected with feedback, revise the plan according to the
+feedback and submit the revised plan for approval again.
 
 Return a structured engineering plan containing:
 - the original objective
@@ -50,6 +57,7 @@ export const plannerAgent = new Agent({
   model: applicationConfig.ai.model,
   tools: {
     askUserTool,
+    submitPlanTool,
   },
 });
 
