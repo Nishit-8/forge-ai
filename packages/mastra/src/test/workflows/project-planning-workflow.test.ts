@@ -9,4 +9,10 @@ describe("Project Planning Workflow", () => {
 
     assert.equal(workflow.id, "project-planning-workflow");
   });
+
+  it("contains the planning step", () => {
+    const workflow = createProjectPlanningWorkflow();
+
+    assert.ok(workflow.steps);
+  });
 });

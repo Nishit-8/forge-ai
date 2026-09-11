@@ -1,4 +1,4 @@
-import { createWorkflow } from "@mastra/core/workflows";
+import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 
 const projectPlanningInputSchema = z.object({
@@ -9,7 +9,30 @@ const projectPlanningInputSchema = z.object({
     .describe("The planning request for the project"),
 });
 
-const projectPlanningOutputSchema = z.object({});
+const projectPlanningStepOutputSchema = z.object({
+  projectId: z.uuid(),
+  request: z.string(),
+});
+
+const projectPlanningStep = createStep({
+  id: "prepare-planning-request",
+  description:
+    "Prepare the validated project planning request for workflow execution.",
+  inputSchema: projectPlanningInputSchema,
+  outputSchema: projectPlanningStepOutputSchema,
+  execute: async ({ inputData }) => {
+    if (!inputData) {
+      throw new Error("Workflow input data is required");
+    }
+
+    return {
+      projectId: inputData.projectId,
+      request: inputData.request.trim(),
+    };
+  },
+});
+
+const projectPlanningOutputSchema = projectPlanningStepOutputSchema;
 
 export function createProjectPlanningWorkflow() {
   return createWorkflow({
@@ -18,5 +41,7 @@ export function createProjectPlanningWorkflow() {
       "Defines the workflow boundary for planning work within a ForgeAI project.",
     inputSchema: projectPlanningInputSchema,
     outputSchema: projectPlanningOutputSchema,
-  }).commit();
+  })
+    .then(projectPlanningStep)
+    .commit();
 }
