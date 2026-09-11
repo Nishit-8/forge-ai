@@ -36,6 +36,24 @@ const projectPlanningStep = createStep({
   },
 });
 
+const finalizePlanningRequestStep = createStep({
+  id: "finalize-planning-request",
+  description:
+    "Finalize the prepared project planning request after the preparation step completes.",
+  inputSchema: projectPlanningStepOutputSchema,
+  outputSchema: projectPlanningStepOutputSchema,
+  execute: async ({ inputData }) => {
+    if (!inputData) {
+      throw new Error("Prepared planning request is required");
+    }
+
+    return {
+      projectId: inputData.projectId,
+      request: inputData.request.replace(/\s+/g, " "),
+    };
+  },
+});
+
 const projectPlanningOutputSchema = projectPlanningStepOutputSchema;
 
 export function createProjectPlanningWorkflow() {
@@ -48,5 +66,6 @@ export function createProjectPlanningWorkflow() {
     outputSchema: projectPlanningOutputSchema,
   })
     .then(projectPlanningStep)
+    .then(finalizePlanningRequestStep)
     .commit();
 }
