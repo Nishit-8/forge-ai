@@ -9,6 +9,10 @@ const projectPlanningInputSchema = z.object({
     .describe("The planning request for the project"),
 });
 
+const projectPlanningStateSchema = z.object({
+  status: z.enum(["pending", "running"]),
+});
+
 const projectPlanningStepOutputSchema = z.object({
   projectId: z.uuid(),
   request: z.string(),
@@ -40,6 +44,7 @@ export function createProjectPlanningWorkflow() {
     description:
       "Defines the workflow boundary for planning work within a ForgeAI project.",
     inputSchema: projectPlanningInputSchema,
+    stateSchema: projectPlanningStateSchema,
     outputSchema: projectPlanningOutputSchema,
   })
     .then(projectPlanningStep)
