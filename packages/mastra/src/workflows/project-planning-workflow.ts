@@ -38,7 +38,24 @@ const projectPlanningStep = createStep({
   },
 });
 
-const plannerAgentStep = createStep(plannerAgent);
+const plannerAgentGenerateStep = createStep({
+  id: "generate-planning-result",
+  description:
+    "Generate the project planning result using the ForgeAI planner agent.",
+  inputSchema: projectPlanningStepOutputSchema,
+  outputSchema: z.object({
+    projectId: z.uuid(),
+    text: z.string(),
+  }),
+  execute: async ({ inputData }) => {
+    const result = await plannerAgent.generate(inputData.request);
+
+    return {
+      projectId: inputData.projectId,
+      text: result.text,
+    };
+  },
+});
 
 export function createProjectPlanningWorkflow() {
   return createWorkflow({
@@ -52,9 +69,6 @@ export function createProjectPlanningWorkflow() {
     }),
   })
     .then(projectPlanningStep)
-    .map(async ({ inputData }) => ({
-      prompt: inputData.request,
-    }))
-    .then(plannerAgentStep)
+    .then(plannerAgentGenerateStep)
     .commit();
 }
