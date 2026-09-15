@@ -1,6 +1,8 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 
+import { plannerAgent } from "../agents/planner-agent.js";
+
 const projectPlanningInputSchema = z.object({
   projectId: z.uuid().describe("The UUID of the project to plan work for"),
   request: z
@@ -36,25 +38,7 @@ const projectPlanningStep = createStep({
   },
 });
 
-const finalizePlanningRequestStep = createStep({
-  id: "finalize-planning-request",
-  description:
-    "Finalize the prepared project planning request after the preparation step completes.",
-  inputSchema: projectPlanningStepOutputSchema,
-  outputSchema: projectPlanningStepOutputSchema,
-  execute: async ({ inputData }) => {
-    if (!inputData) {
-      throw new Error("Prepared planning request is required");
-    }
-
-    return {
-      projectId: inputData.projectId,
-      request: inputData.request.replace(/\s+/g, " "),
-    };
-  },
-});
-
-const projectPlanningOutputSchema = projectPlanningStepOutputSchema;
+const plannerAgentStep = createStep(plannerAgent);
 
 export function createProjectPlanningWorkflow() {
   return createWorkflow({
@@ -63,9 +47,14 @@ export function createProjectPlanningWorkflow() {
       "Defines the workflow boundary for planning work within a ForgeAI project.",
     inputSchema: projectPlanningInputSchema,
     stateSchema: projectPlanningStateSchema,
-    outputSchema: projectPlanningOutputSchema,
+    outputSchema: z.object({
+      text: z.string(),
+    }),
   })
     .then(projectPlanningStep)
-    .then(finalizePlanningRequestStep)
+    .map(async ({ inputData }) => ({
+      prompt: inputData.request,
+    }))
+    .then(plannerAgentStep)
     .commit();
 }
