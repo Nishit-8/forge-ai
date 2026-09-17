@@ -1,7 +1,10 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 
+import type { TaskService } from "@forgeai/domain";
+
 import { plannerAgent } from "../agents/planner-agent.js";
+import { createListProjectTasksTool } from "../tools/list-project-tasks-tool.js";
 
 const projectPlanningInputSchema = z.object({
   projectId: z.uuid().describe("The UUID of the project to plan work for"),
@@ -18,6 +21,11 @@ const projectPlanningStateSchema = z.object({
 const projectPlanningStepOutputSchema = z.object({
   projectId: z.uuid(),
   request: z.string(),
+});
+
+const plannerAgentGenerateStepOutputSchema = z.object({
+  projectId: z.uuid(),
+  text: z.string(),
 });
 
 const projectPlanningStep = createStep({
@@ -43,10 +51,7 @@ const plannerAgentGenerateStep = createStep({
   description:
     "Generate the project planning result using the ForgeAI planner agent.",
   inputSchema: projectPlanningStepOutputSchema,
-  outputSchema: z.object({
-    projectId: z.uuid(),
-    text: z.string(),
-  }),
+  outputSchema: plannerAgentGenerateStepOutputSchema,
   execute: async ({ inputData }) => {
     const result = await plannerAgent.generate(inputData.request);
 
@@ -57,18 +62,21 @@ const plannerAgentGenerateStep = createStep({
   },
 });
 
-export function createProjectPlanningWorkflow() {
+export function createProjectPlanningWorkflow(taskService: TaskService) {
+  const listProjectTasksStep = createStep(
+    createListProjectTasksTool(taskService),
+  );
+
   return createWorkflow({
     id: "project-planning-workflow",
     description:
       "Defines the workflow boundary for planning work within a ForgeAI project.",
     inputSchema: projectPlanningInputSchema,
     stateSchema: projectPlanningStateSchema,
-    outputSchema: z.object({
-      text: z.string(),
-    }),
+    outputSchema: z.unknown(),
   })
     .then(projectPlanningStep)
     .then(plannerAgentGenerateStep)
+    .then(listProjectTasksStep)
     .commit();
 }

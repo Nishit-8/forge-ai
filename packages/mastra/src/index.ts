@@ -20,7 +20,7 @@ export function createMastra(projectService: ProjectService, taskService: TaskSe
     taskService,
   );
 
-  const projectPlanningWorkflow = createProjectPlanningWorkflow();
+  const projectPlanningWorkflow = createProjectPlanningWorkflow(taskService);
 
   return new Mastra({
     agents: {
