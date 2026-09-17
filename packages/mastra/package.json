@@ -14,7 +14,8 @@
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "workflow:project-planning": "tsx src/run-project-planning-workflow.ts"
   },
   "dependencies": {
     "@forgeai/config": "^0.1.0",
