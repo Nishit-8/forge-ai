@@ -7,7 +7,9 @@ import { plannerAgent } from "../agents/planner-agent.js";
 import { createListProjectTasksTool } from "../tools/list-project-tasks-tool.js";
 
 const projectPlanningInputSchema = z.object({
-  projectId: z.uuid().describe("The UUID of the project to plan work for"),
+  projectId: z
+    .uuid()
+    .describe("The UUID of the project to plan work for"),
   request: z
     .string()
     .min(1)
@@ -27,6 +29,24 @@ const plannerAgentGenerateStepOutputSchema = z.object({
   projectId: z.uuid(),
   text: z.string(),
 });
+
+const projectPlanningOutputSchema = z.array(
+  z.object({
+    id: z.string(),
+    projectId: z.string(),
+    title: z.string(),
+    description: z.string(),
+    status: z.enum([
+      "todo",
+      "in_progress",
+      "completed",
+      "cancelled",
+    ]),
+    priority: z.enum(["low", "medium", "high"]),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  }),
+);
 
 const projectPlanningStep = createStep({
   id: "prepare-planning-request",
@@ -73,7 +93,7 @@ export function createProjectPlanningWorkflow(taskService: TaskService) {
       "Defines the workflow boundary for planning work within a ForgeAI project.",
     inputSchema: projectPlanningInputSchema,
     stateSchema: projectPlanningStateSchema,
-    outputSchema: z.unknown(),
+    outputSchema: projectPlanningOutputSchema,
   })
     .then(projectPlanningStep)
     .then(plannerAgentGenerateStep)
