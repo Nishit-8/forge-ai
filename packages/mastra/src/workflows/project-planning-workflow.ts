@@ -77,6 +77,11 @@ export function createProjectPlanningWorkflow(taskService: TaskService) {
   })
     .then(projectPlanningStep)
     .then(plannerAgentGenerateStep)
+    .map(async ({ inputData }) => {
+      return {
+        projectId: inputData.projectId,
+      };
+    })
     .then(listProjectTasksStep)
     .commit();
 }
