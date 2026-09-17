@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { RequestContext } from "@mastra/core/request-context";
+
 import { ProjectService, TaskService } from "@forgeai/domain";
 import {
   LibSQLProjectRepository,
@@ -29,6 +32,12 @@ if (!projectId) {
 
 const request = "Create a plan for improving this project.";
 
+const requestContext = new RequestContext<{
+  requestId: string;
+}>();
+
+requestContext.set("requestId", randomUUID());
+
 const stream = run.stream({
   inputData: {
     projectId,
@@ -37,6 +46,7 @@ const stream = run.stream({
   initialState: {
     status: "pending",
   },
+  requestContext,
 });
 
 for await (const chunk of stream) {
