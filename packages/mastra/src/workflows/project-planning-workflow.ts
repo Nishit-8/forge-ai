@@ -1,46 +1,107 @@
-import { ProjectService, TaskService } from "@forgeai/domain";
-import {
-  LibSQLProjectRepository,
-  LibSQLTaskRepository,
-  database,
-} from "@forgeai/infrastructure";
+import { createStep, createWorkflow } from "@mastra/core/workflows";
+import { z } from "zod";
 
-import { createMastra } from "../index.js";
+import type { TaskService } from "@forgeai/domain";
 
+import { plannerAgent } from "../agents/planner-agent.js";
+import { createListProjectTasksTool } from "../tools/list-project-tasks-tool.js";
 
-const projectRepository = new LibSQLProjectRepository(database);
-const taskRepository = new LibSQLTaskRepository(database);
+const projectPlanningInputSchema = z.object({
+  projectId: z
+    .uuid()
+    .describe("The UUID of the project to plan work for"),
+  request: z
+    .string()
+    .min(1)
+    .describe("The planning request for the project"),
+});
 
-const projectService = new ProjectService(projectRepository);
-const taskService = new TaskService(taskRepository);
+const projectPlanningStateSchema = z.object({
+  status: z.enum(["pending", "running"]),
+});
 
-const mastra = createMastra(projectService, taskService);
+const projectPlanningStepOutputSchema = z.object({
+  projectId: z.uuid(),
+  request: z.string(),
+});
 
-const workflow = mastra.getWorkflow("projectPlanningWorkflow");
+const plannerAgentGenerateStepOutputSchema = z.object({
+  projectId: z.uuid(),
+  text: z.string(),
+});
 
-const run = await workflow.createRun();
+const projectPlanningOutputSchema = z.array(
+  z.object({
+    id: z.string(),
+    projectId: z.string(),
+    title: z.string(),
+    description: z.string(),
+    status: z.enum([
+      "todo",
+      "in_progress",
+      "completed",
+      "cancelled",
+    ]),
+    priority: z.enum(["low", "medium", "high"]),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  }),
+);
 
-const projectId = process.argv[2];
+const projectPlanningStep = createStep({
+  id: "prepare-planning-request",
+  description:
+    "Prepare the validated project planning request for workflow execution.",
+  inputSchema: projectPlanningInputSchema,
+  outputSchema: projectPlanningStepOutputSchema,
+  execute: async ({ inputData }) => {
+    if (!inputData) {
+      throw new Error("Workflow input data is required");
+    }
 
-if (!projectId) {
-  throw new Error(
-    "Usage: npm run workflow:project-planning --workspace=@forgeai/mastra -- <projectId>",
-  );
-}
-
-const request = "Create a plan for improving this project.";
-
-const stream = run.stream({
-  inputData: {
-    projectId,
-    request,
-  },
-  initialState: {
-    status: "pending",
+    return {
+      projectId: inputData.projectId,
+      request: inputData.request.trim(),
+    };
   },
 });
 
-for await (const chunk of stream) {
-  console.log("Workflow event:");
-  console.log(JSON.stringify(chunk, null, 2));
+const plannerAgentGenerateStep = createStep({
+  id: "generate-planning-result",
+  description:
+    "Generate the project planning result using the ForgeAI planner agent.",
+  inputSchema: projectPlanningStepOutputSchema,
+  outputSchema: plannerAgentGenerateStepOutputSchema,
+  execute: async ({ inputData }) => {
+    const result = await plannerAgent.generate(inputData.request);
+
+    return {
+      projectId: inputData.projectId,
+      text: result.text,
+    };
+  },
+});
+
+export function createProjectPlanningWorkflow(taskService: TaskService) {
+  const listProjectTasksStep = createStep(
+    createListProjectTasksTool(taskService),
+  );
+
+  return createWorkflow({
+    id: "project-planning-workflow",
+    description:
+      "Defines the workflow boundary for planning work within a ForgeAI project.",
+    inputSchema: projectPlanningInputSchema,
+    stateSchema: projectPlanningStateSchema,
+    outputSchema: projectPlanningOutputSchema,
+  })
+    .then(projectPlanningStep)
+    .then(plannerAgentGenerateStep)
+    .map(async ({ inputData }) => {
+      return {
+        projectId: inputData.projectId,
+      };
+    })
+    .then(listProjectTasksStep)
+    .commit();
 }

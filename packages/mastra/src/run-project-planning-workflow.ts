@@ -15,7 +15,7 @@ const taskService = new TaskService(taskRepository);
 
 const mastra = createMastra(projectService, taskService);
 
-const workflow = mastra.getWorkflow("projectPlanningWorkflow")
+const workflow = mastra.getWorkflow("projectPlanningWorkflow");
 
 const run = await workflow.createRun();
 
@@ -29,7 +29,7 @@ if (!projectId) {
 
 const request = "Create a plan for improving this project.";
 
-const result = await run.start({
+const stream = run.stream({
   inputData: {
     projectId,
     request,
@@ -39,15 +39,7 @@ const result = await run.start({
   },
 });
 
-console.log(`Workflow status: ${result.status}`);
-
-if (result.status === "success") {
-  console.log("Workflow completed successfully.");
-  console.log("Workflow result:");
-  console.log(JSON.stringify(result.result, null, 2));
-}
-
-if (result.status === "failed") {
-  console.error("Workflow failed:");
-  console.error(result.error);
+for await (const chunk of stream) {
+  console.log("Workflow event:");
+  console.log(JSON.stringify(chunk, null, 2));
 }
