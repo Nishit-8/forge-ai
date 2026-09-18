@@ -4,7 +4,6 @@ import { z } from "zod";
 import type { TaskService } from "@forgeai/domain";
 
 import { plannerAgent } from "../agents/planner-agent.js";
-import { createListProjectTasksTool } from "../tools/list-project-tasks-tool.js";
 
 const projectPlanningInputSchema = z.object({
   projectId: z
@@ -34,7 +33,7 @@ const plannerAgentGenerateStepOutputSchema = z.object({
   text: z.string(),
 });
 
-const projectPlanningOutputSchema = z.object({
+const projectPlanningParallelOutputSchema = z.object({
   "generate-planning-result": plannerAgentGenerateStepOutputSchema,
   "list-project-tasks": z.array(
     z.object({
@@ -53,6 +52,12 @@ const projectPlanningOutputSchema = z.object({
       updatedAt: z.date(),
     }),
   ),
+});
+
+const projectPlanningBranchOutputSchema = z.object({
+  planningMode: z.enum(["initial", "existing"]),
+  projectId: z.uuid(),
+  text: z.string(),
 });
 
 const projectPlanningStep = createStep({
@@ -120,6 +125,37 @@ export function createProjectPlanningWorkflow(taskService: TaskService) {
       return taskService.listByProject(inputData.projectId);
     },
   });
+
+  const existingProjectPlanningStep = createStep({
+    id: "existing-project-planning",
+    description:
+      "Mark the planning request as an update to an existing project.",
+    inputSchema: projectPlanningParallelOutputSchema,
+    outputSchema: projectPlanningBranchOutputSchema,
+    execute: async ({ inputData }) => {
+      return {
+        planningMode: "existing" as const,
+        projectId: inputData["generate-planning-result"].projectId,
+        text: inputData["generate-planning-result"].text,
+      };
+    },
+  });
+
+  const initialProjectPlanningStep = createStep({
+    id: "initial-project-planning",
+    description:
+      "Mark the planning request as the initial plan for a project.",
+    inputSchema: projectPlanningParallelOutputSchema,
+    outputSchema: projectPlanningBranchOutputSchema,
+    execute: async ({ inputData }) => {
+      return {
+        planningMode: "initial" as const,
+        projectId: inputData["generate-planning-result"].projectId,
+        text: inputData["generate-planning-result"].text,
+      };
+    },
+  });
+
   return createWorkflow({
     id: "project-planning-workflow",
     description:
@@ -127,12 +163,29 @@ export function createProjectPlanningWorkflow(taskService: TaskService) {
     inputSchema: projectPlanningInputSchema,
     requestContextSchema: projectPlanningRequestContextSchema,
     stateSchema: projectPlanningStateSchema,
-    outputSchema: projectPlanningOutputSchema,
+    outputSchema: z.object({
+      "existing-project-planning":
+        projectPlanningBranchOutputSchema.optional(),
+      "initial-project-planning":
+        projectPlanningBranchOutputSchema.optional(),
+    }),
   })
     .then(projectPlanningStep)
     .parallel([
       plannerAgentGenerateStep,
       listProjectTasksStep,
+    ])
+    .branch([
+      [
+        async ({ inputData }) =>
+          inputData["list-project-tasks"].length > 0,
+        existingProjectPlanningStep,
+      ],
+      [
+        async ({ inputData }) =>
+          inputData["list-project-tasks"].length === 0,
+        initialProjectPlanningStep,
+      ],
     ])
     .commit();
 }
