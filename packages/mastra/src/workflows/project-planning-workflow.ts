@@ -163,12 +163,7 @@ export function createProjectPlanningWorkflow(taskService: TaskService) {
     inputSchema: projectPlanningInputSchema,
     requestContextSchema: projectPlanningRequestContextSchema,
     stateSchema: projectPlanningStateSchema,
-    outputSchema: z.object({
-      "existing-project-planning":
-        projectPlanningBranchOutputSchema.optional(),
-      "initial-project-planning":
-        projectPlanningBranchOutputSchema.optional(),
-    }),
+    outputSchema: projectPlanningBranchOutputSchema,
   })
     .then(projectPlanningStep)
     .parallel([
@@ -187,5 +182,23 @@ export function createProjectPlanningWorkflow(taskService: TaskService) {
         initialProjectPlanningStep,
       ],
     ])
+    .map(
+      async ({ inputData }) => {
+        const planningResult =
+          inputData["existing-project-planning"] ??
+          inputData["initial-project-planning"];
+
+        if (!planningResult) {
+          throw new Error(
+            "Project planning branch did not produce a result",
+          );
+        }
+
+        return planningResult;
+      },
+      {
+        id: "map-planning-result",
+      },
+    )
     .commit();
 }
