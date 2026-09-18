@@ -1,123 +1,273 @@
-import { useState, type SyntheticEvent } from "react";
+import { useEffect, useState, type SyntheticEvent } from "react";
 
-type AgentState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "success"; response: string }
-  | { status: "error"; message: string };
+interface Project {
+  id: string;
+  name: string;
+  description: string;
+  status: "active" | "completed" | "archived";
+  createdAt: string;
+  updatedAt: string;
+}
 
-interface AgentResponse {
-  response?: string;
+interface ProjectResponse {
   error?: string;
 }
 
+type ProjectState =
+  | { status: "loading" }
+  | { status: "success"; projects: Project[] }
+  | { status: "error"; message: string };
+
 function App() {
-  const [prompt, setPrompt] = useState("");
-  const [agentState, setAgentState] = useState<AgentState>({
-    status: "idle",
+  const [projectState, setProjectState] = useState<ProjectState>({
+    status: "loading",
   });
 
-  async function submitPrompt(
-    event: SyntheticEvent<HTMLFormElement>
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  async function loadProjects(): Promise<void> {
+    setProjectState({ status: "loading" });
+
+    try {
+      const response = await fetch("/api/projects");
+
+      const body = (await response.json()) as Project[] | ProjectResponse;
+
+      if (!response.ok) {
+        const errorBody = body as ProjectResponse;
+
+        throw new Error(
+          errorBody.error ?? "Failed to load projects",
+        );
+      }
+
+      setProjectState({
+        status: "success",
+        projects: body as Project[],
+      });
+    } catch (error) {
+      setProjectState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to load projects",
+      });
+    }
+  }
+
+  useEffect(() => {
+    void loadProjects();
+  }, []);
+
+  async function createProject(
+    event: SyntheticEvent<HTMLFormElement>,
   ): Promise<void> {
     event.preventDefault();
 
-    const trimmedPrompt = prompt.trim();
+    const trimmedName = name.trim();
+    const trimmedDescription = description.trim();
 
-    if (!trimmedPrompt) {
-      setAgentState({
-        status: "error",
-        message: "Enter a prompt before sending it to the agent.",
-      });
+    if (!trimmedName) {
+      setFormError("Project name is required.");
       return;
     }
 
-    setAgentState({ status: "loading" });
+    setFormError("");
+    setIsCreating(true);
 
     try {
-      const response = await fetch("/api/ai/agent", {
+      const response = await fetch("/api/projects", {
         method: "POST",
         headers: {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          prompt: trimmedPrompt,
+          name: trimmedName,
+          description: trimmedDescription,
         }),
       });
 
-      const body = (await response.json()) as AgentResponse;
+      const body = (await response.json()) as Project | ProjectResponse;
 
       if (!response.ok) {
-        throw new Error(body.error ?? "Agent request failed");
+        const errorBody = body as ProjectResponse;
+
+        throw new Error(
+          errorBody.error ?? "Failed to create project",
+        );
       }
 
-      setAgentState({
-        status: "success",
-        response: body.response ?? "",
+      const createdProject = body as Project;
+
+      setProjectState((currentState) => {
+        if (currentState.status !== "success") {
+          return {
+            status: "success",
+            projects: [createdProject],
+          };
+        }
+
+        return {
+          status: "success",
+          projects: [
+            ...currentState.projects,
+            createdProject,
+          ],
+        };
       });
+
+      setName("");
+      setDescription("");
     } catch (error) {
-      setAgentState({
-        status: "error",
-        message:
-          error instanceof Error ? error.message : "Unknown agent error",
-      });
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : "Failed to create project",
+      );
+    } finally {
+      setIsCreating(false);
     }
   }
 
   return (
     <main>
-      <section className="agent-card" aria-labelledby="agent-title">
-        <div className="agent-header">
+      <section className="project-card" aria-labelledby="project-title">
+        <header className="project-header">
           <div>
             <p className="eyebrow">ForgeAI</p>
-            <h1 id="agent-title">Engineering Agent</h1>
+            <h1 id="project-title">Projects</h1>
             <p className="subtitle">
-              Ask the agent about your projects and tasks.
+              Create and manage the projects that power your engineering
+              workspace.
             </p>
           </div>
 
-          <span className="status-badge">Ready</span>
-        </div>
+          <span className="status-badge">Project Management</span>
+        </header>
 
-        <form onSubmit={submitPrompt}>
-          <label htmlFor="agent-prompt">Prompt</label>
+        <form onSubmit={createProject} className="project-form">
+          <div>
+            <label htmlFor="project-name">Project name</label>
 
-          <textarea
-            id="agent-prompt"
-            name="prompt"
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            placeholder="Ask ForgeAI something about your engineering work..."
-            rows={5}
-            maxLength={500}
-            disabled={agentState.status === "loading"}
-          />
+            <input
+              id="project-name"
+              name="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="e.g. ForgeAI"
+              maxLength={200}
+              disabled={isCreating}
+            />
+          </div>
 
-          <div className="prompt-footer">
-            <span>{prompt.length}/500</span>
+          <div>
+            <label htmlFor="project-description">
+              Description
+            </label>
 
+            <textarea
+              id="project-description"
+              name="description"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="What are you building?"
+              rows={4}
+              maxLength={1000}
+              disabled={isCreating}
+            />
+          </div>
+
+          {formError && (
+            <div className="response error" role="alert">
+              {formError}
+            </div>
+          )}
+
+          <div className="form-actions">
             <button
               type="submit"
-              disabled={agentState.status === "loading"}
+              disabled={isCreating}
             >
-              {agentState.status === "loading" ? "Thinking..." : "Send"}
+              {isCreating ? "Creating..." : "Create project"}
             </button>
           </div>
         </form>
 
-        {agentState.status === "success" && (
-          <div className="response success" role="status">
-            <strong>Agent response</strong>
-            <p>{agentState.response}</p>
-          </div>
-        )}
+        <section
+          className="projects-section"
+          aria-labelledby="projects-heading"
+        >
+          <div className="section-header">
+            <h2 id="projects-heading">Your projects</h2>
 
-        {agentState.status === "error" && (
-          <div className="response error" role="alert">
-            <strong>Request failed</strong>
-            <p>{agentState.message}</p>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => void loadProjects()}
+              disabled={projectState.status === "loading"}
+            >
+              Refresh
+            </button>
           </div>
-        )}
+
+          {projectState.status === "loading" && (
+            <div className="empty-state" role="status">
+              Loading projects...
+            </div>
+          )}
+
+          {projectState.status === "error" && (
+            <div className="response error" role="alert">
+              <strong>Unable to load projects</strong>
+              <p>{projectState.message}</p>
+
+              <button
+                type="button"
+                onClick={() => void loadProjects()}
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
+          {projectState.status === "success" &&
+            projectState.projects.length === 0 && (
+              <div className="empty-state">
+                <strong>No projects yet</strong>
+                <p>
+                  Create your first project using the form above.
+                </p>
+              </div>
+            )}
+
+          {projectState.status === "success" &&
+            projectState.projects.length > 0 && (
+              <div className="project-list">
+                {projectState.projects.map((project) => (
+                  <article
+                    className="project-item"
+                    key={project.id}
+                  >
+                    <div>
+                      <h3>{project.name}</h3>
+
+                      {project.description && (
+                        <p>{project.description}</p>
+                      )}
+                    </div>
+
+                    <span className="project-status">
+                      {project.status}
+                    </span>
+                  </article>
+                ))}
+              </div>
+            )}
+        </section>
       </section>
     </main>
   );
