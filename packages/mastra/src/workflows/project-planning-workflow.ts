@@ -34,23 +34,26 @@ const plannerAgentGenerateStepOutputSchema = z.object({
   text: z.string(),
 });
 
-const projectPlanningOutputSchema = z.array(
-  z.object({
-    id: z.string(),
-    projectId: z.string(),
-    title: z.string(),
-    description: z.string(),
-    status: z.enum([
-      "todo",
-      "in_progress",
-      "completed",
-      "cancelled",
-    ]),
-    priority: z.enum(["low", "medium", "high"]),
-    createdAt: z.date(),
-    updatedAt: z.date(),
-  }),
-);
+const projectPlanningOutputSchema = z.object({
+  "generate-planning-result": plannerAgentGenerateStepOutputSchema,
+  "list-project-tasks": z.array(
+    z.object({
+      id: z.string(),
+      projectId: z.string(),
+      title: z.string(),
+      description: z.string(),
+      status: z.enum([
+        "todo",
+        "in_progress",
+        "completed",
+        "cancelled",
+      ]),
+      priority: z.enum(["low", "medium", "high"]),
+      createdAt: z.date(),
+      updatedAt: z.date(),
+    }),
+  ),
+});
 
 const projectPlanningStep = createStep({
   id: "prepare-planning-request",
@@ -87,10 +90,36 @@ const plannerAgentGenerateStep = createStep({
 });
 
 export function createProjectPlanningWorkflow(taskService: TaskService) {
-  const listProjectTasksStep = createStep(
-    createListProjectTasksTool(taskService),
-  );
+  const listProjectTasksStep = createStep({
+    id: "list-project-tasks",
+    description:
+      "Retrieve the current tasks for the project as a parallel planning input.",
+    inputSchema: projectPlanningStepOutputSchema,
+    outputSchema: z.array(
+      z.object({
+        id: z.string(),
+        projectId: z.uuid(),
+        title: z.string(),
+        description: z.string(),
+        status: z.enum([
+          "todo",
+          "in_progress",
+          "completed",
+          "cancelled",
+        ]),
+        priority: z.enum(["low", "medium", "high"]),
+        createdAt: z.date(),
+        updatedAt: z.date(),
+      }),
+    ),
+    execute: async ({ inputData }) => {
+      if (!inputData) {
+        throw new Error("Workflow input data is required");
+      }
 
+      return taskService.listByProject(inputData.projectId);
+    },
+  });
   return createWorkflow({
     id: "project-planning-workflow",
     description:
@@ -101,12 +130,9 @@ export function createProjectPlanningWorkflow(taskService: TaskService) {
     outputSchema: projectPlanningOutputSchema,
   })
     .then(projectPlanningStep)
-    .then(plannerAgentGenerateStep)
-    .map(async ({ inputData }) => {
-      return {
-        projectId: inputData.projectId,
-      };
-    })
-    .then(listProjectTasksStep)
+    .parallel([
+      plannerAgentGenerateStep,
+      listProjectTasksStep,
+    ])
     .commit();
 }
